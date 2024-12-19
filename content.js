@@ -2,6 +2,9 @@
 let isConnected = false;
 let chromeAPIAvailable = typeof chrome !== 'undefined' && chrome.runtime && chrome.storage;
 
+// Initialize connection status and port
+let port = null;
+
 // Set up connection when content script loads - only if Chrome API is available
 if (chromeAPIAvailable) {
     try {
@@ -9,12 +12,33 @@ if (chromeAPIAvailable) {
             isConnected = true;
             port.onDisconnect.addListener(() => {
                 isConnected = false;
+                port = null;
+                // Try to reconnect after a short delay
+                setTimeout(setupConnection, 1000);
             });
         });
     } catch (error) {
         console.log('Error setting up Chrome connection:', error);
         chromeAPIAvailable = false;
     }
+}
+
+// Initialize connection
+setupConnection();
+
+// Add handler functions
+function handleStoreSelection(data) {
+    try {
+        sessionStorage.setItem('opptics_pending_selection', JSON.stringify(data));
+    } catch (error) {
+        console.error('Error storing selection:', error);
+    }
+}
+
+function handleOpenPopup() {
+    // Implementation depends on how you want to open the popup
+    // This could be a custom UI element or trigger the extension popup
+    console.log('Popup open requested');
 }
 
 // On page load, run if enabled
@@ -423,4 +447,37 @@ function getSelectionContext(selection) {
     }
     
     return context;
+}
+
+// Set up connection when content script loads
+function setupConnection() {
+    try {
+        port = chrome.runtime.connect();
+        isConnected = true;
+
+        port.onDisconnect.addListener(() => {
+            isConnected = false;
+            port = null;
+            // Try to reconnect after a short delay
+            setTimeout(setupConnection, 1000);
+        });
+
+        // Notify background script that we're ready
+        port.postMessage({ type: 'ready' });
+
+        // Listen for messages from the background script
+        port.onMessage.addListener((msg) => {
+            if (msg.action === 'storeSelection') {
+                handleStoreSelection(msg.data);
+            } else if (msg.action === 'openPopup') {
+                handleOpenPopup();
+            }
+        });
+    } catch (error) {
+        console.log('Error setting up connection:', error);
+        isConnected = false;
+        port = null;
+        // Try to reconnect after a short delay
+        setTimeout(setupConnection, 1000);
+    }
 }
