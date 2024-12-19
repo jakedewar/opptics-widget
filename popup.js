@@ -235,94 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Add analyze-url event listener
-    const analyzeUrlButton = document.getElementById('analyze-url');
-    if (analyzeUrlButton) {
-        analyzeUrlButton.addEventListener('click', async () => {
-            const urlInput = document.getElementById('website-url');
-            const resultsContainer = document.getElementById('analysis-results');
-            const url = urlInput.value.trim();
-
-            if (!url) {
-                resultsContainer.innerHTML = `
-                    <div class="error-message">
-                        Please enter a valid website URL
-                    </div>
-                `;
-                return;
-            }
-
-            try {
-                resultsContainer.innerHTML = `
-                    <div class="analysis-status">
-                        <div class="loading-spinner"></div>
-                        <div>Analyzing website content...</div>
-                    </div>
-                `;
-
-                // Fetch website content
-                const response = await fetch(url);
-                const html = await response.text();
-
-                // Extract relevant content using DOM parser
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const content = {
-                    title: doc.title,
-                    metaDescription: doc.querySelector('meta[name="description"]')?.content || '',
-                    metaKeywords: doc.querySelector('meta[name="keywords"]')?.content || '',
-                    h1: Array.from(doc.querySelectorAll('h1')).map(h => h.textContent).join(' '),
-                    mainContent: doc.querySelector('main')?.textContent || doc.body.textContent
-                };
-
-                // Analyze with OpenAI
-                const analysis = await analyzeWithOpenAI(content, resultsContainer);
-
-                // Display results
-                resultsContainer.innerHTML = `
-                    <div class="suggestions-container">
-                        <h3>Suggested Mappings</h3>
-                        <div class="suggested-mappings">
-                            ${Object.entries(analysis.mappings)
-                                .map(([original, replacement]) => `
-                                    <div class="suggestion-item">
-                                        <input type="checkbox" checked>
-                                        <span class="original">${original}</span>
-                                        <span class="arrow">→</span>
-                                        <span class="replacement">${replacement}</span>
-                                    </div>
-                                `).join('')}
-                        </div>
-                        <button id="apply-suggestions" class="analyze-button">
-                            Apply Selected Mappings
-                        </button>
-                    </div>
-                `;
-
-                // Add event listener for applying suggestions
-                document.getElementById('apply-suggestions').addEventListener('click', () => {
-                    const selectedMappings = {};
-                    document.querySelectorAll('.suggestion-item input:checked').forEach(checkbox => {
-                        const item = checkbox.closest('.suggestion-item');
-                        const original = item.querySelector('.original').textContent;
-                        const replacement = item.querySelector('.replacement').textContent;
-                        selectedMappings[original] = replacement;
-                    });
-
-                    loadMappings(selectedMappings);
-                    resultsContainer.innerHTML = '<div class="success-message">Mappings applied successfully!</div>';
-                });
-
-            } catch (error) {
-                resultsContainer.innerHTML = `
-                    <div class="error-message">
-                        Error analyzing website: ${error.message}
-                    </div>
-                `;
-            }
-        });
-    }
-
     // Add template-select event listener
     const templateSelect = document.getElementById('template-select');
     if (templateSelect) {
@@ -515,70 +427,6 @@ function updateMappingState() {
     chrome.storage.sync.set({ mapping: mappings });
 }
 
-async function analyzeWithOpenAI(content, resultsContainer) {
-    const SYSTEM_PROMPT = `You are a JSON-only response API for analyzing websites and generating personalized demo mappings.
-    Return a JSON object in this format:
-    {
-        "industry": "string",
-        "mappings": {
-            "original": "replacement"
-        }
-    }`;
-
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.OPENAI_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4",
-                messages: [
-                    {
-                        role: "system",
-                        content: SYSTEM_PROMPT
-                    },
-                    {
-                        role: "user",
-                        content: `Return a JSON object analyzing this website content:\n\n${content}`
-                    }
-                ],
-                temperature: 0.3
-            }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(`OpenAI API Error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        let analysis;
-        
-        try {
-            analysis = JSON.parse(data.choices[0].message.content.trim());
-        } catch (parseError) {
-            console.error('Parse error:', data.choices[0].message.content);
-            analysis = {
-                industry: "unknown",
-                mappings: {}
-            };
-        }
-
-        return analysis;
-
-    } catch (error) {
-        console.error('Analysis error:', error);
-        throw error;
-    }
-}
-
 function initializeTemplateSelect() {
     const templateSelect = document.getElementById('template-select');
     templateSelect.innerHTML = `
@@ -590,20 +438,35 @@ function initializeTemplateSelect() {
 }
 
 function initializeTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabs = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
 
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Remove active class from all buttons and content
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            tabContents.forEach(content => content.classList.add('hidden'));
-
-            // Add active class to clicked button and show corresponding content
-            button.classList.add('active');
-            const tabId = `${button.dataset.tab}-tab`;
-            document.getElementById(tabId).classList.remove('hidden');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
+            switchToTab(tabId);
         });
+    });
+}
+
+function switchToTab(tabId) {
+    const tabs = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+        if (tab.getAttribute('data-tab') === tabId) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+
+    tabContents.forEach(content => {
+        if (content.id === `${tabId}-tab`) {
+            content.classList.remove('hidden');
+        } else {
+            content.classList.add('hidden');
+        }
     });
 }
 
@@ -712,114 +575,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === 'selectedTextForAnalysis') {
         handleSelectedTextAnalysis(message.text, message.context);
     } else if (message.action === 'openExtension') {
-        // Switch to the AI Analysis tab
+        // Switch to the analyze tab to show coming soon message
         switchToTab('analyze');
     }
 });
 
-// Add a helper function to switch tabs
-function switchToTab(tabId) {
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-    
-    // Remove active class and hide all tabs
-    tabButtons.forEach(btn => btn.classList.remove('active'));
-    tabContents.forEach(content => content.classList.add('hidden'));
-    
-    // Activate the requested tab
-    const targetButton = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
-    const targetContent = document.getElementById(`${tabId}-tab`);
-    
-    if (targetButton && targetContent) {
-        targetButton.classList.add('active');
-        targetContent.classList.remove('hidden');
-    }
-}
-
-// Simplified function to handle selected text
-async function handleSelectedTextAnalysis(selectedText, context) {
-    const analyzeTab = document.getElementById('analyze-tab');
-    const selectedTextContainer = document.getElementById('selected-text-container');
-    const selectedTextDisplay = document.getElementById('selected-text');
-    
-    // Show the analyze tab
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-    analyzeTab.classList.remove('hidden');
-    
-    // Display selected text
-    selectedTextContainer.classList.remove('hidden');
-    selectedTextDisplay.textContent = selectedText;
-    
-    // Add click handler for adding to mappings
-    document.getElementById('add-to-mappings').addEventListener('click', async () => {
-        // Create a new mapping node
-        const container = document.getElementById('mapping-nodes');
-        if (container) {
-            const emptyState = container.querySelector('.empty-state');
-            if (emptyState) {
-                emptyState.style.display = 'none';
-            }
-            
-            const newNode = createMappingNode(selectedText, '');
-            newNode.classList.add('new-mapping-node');
-            container.appendChild(newNode);
-            
-            // Focus the replacement input
-            const replacementInput = newNode.querySelector('.replacement');
-            if (replacementInput) {
-                replacementInput.focus();
-            }
-            
-            // Switch to Templates tab
-            switchToTab('templates');
-        }
-    });
-}
-
-// Helper function to display analysis results
-function displayAnalysisResults(analysis, selectedText, resultsContainer) {
-    resultsContainer.innerHTML = `
-        <div class="suggestions-container">
-            <h4>AI Suggestions</h4>
-            <div class="suggested-mappings">
-                ${analysis.suggestions.map(suggestion => `
-                    <div class="suggestion-item">
-                        <input type="checkbox" checked>
-                        <span class="original">${selectedText}</span>
-                        <span class="arrow">→</span>
-                        <span class="replacement">${suggestion}</span>
-                    </div>
-                `).join('')}
-            </div>
-            <button id="apply-suggestions" class="primary-button">
-                Apply Selected Suggestion
-            </button>
-        </div>
-    `;
-    
-    // Add handler for applying suggestions
-    document.getElementById('apply-suggestions').addEventListener('click', async () => {
-        const selectedSuggestion = document.querySelector('.suggestion-item input:checked');
-        if (selectedSuggestion) {
-            const replacement = selectedSuggestion.closest('.suggestion-item')
-                .querySelector('.replacement').textContent;
-            
-            // Get current mappings and update
-            const { mapping = {} } = await chrome.storage.sync.get('mapping');
-            const updatedMappings = {
-                ...mapping,
-                [selectedText]: replacement
-            };
-            
-            // Save and update UI
-            await chrome.storage.sync.set({ mapping: updatedMappings });
-            await chrome.storage.local.remove('analysisState');
-            
-            // Update UI with new mappings
-            loadMappings(updatedMappings);
-            resultsContainer.innerHTML = '<div class="success-message">Mapping added successfully!</div>';
-        }
-    });
+function handleSelectedTextAnalysis(selectedText, context) {
+    // Switch to analyze tab to show coming soon message
+    switchToTab('analyze');
 }
 
 

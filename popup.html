@@ -874,6 +874,219 @@
         .quick-replace-button:hover {
             background: var(--secondary-color);
         }
+
+        .coming-soon-container {
+            padding: 24px 16px;
+            text-align: center;
+            background: var(--light-background);
+            border-radius: 12px;
+            margin: 16px 0;
+            border: 1px solid var(--border-color);
+        }
+
+        .coming-soon-icon {
+            color: var(--primary-color);
+            margin-bottom: 16px;
+            animation: pulse 2s infinite;
+        }
+
+        .coming-soon-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 0 0 8px 0;
+        }
+
+        .coming-soon-description {
+            font-size: 13px;
+            color: var(--light-text);
+            margin: 0 0 20px 0;
+            line-height: 1.5;
+        }
+
+        .feature-preview {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 8px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-color);
+            flex: 1;
+        }
+
+        .feature-icon {
+            font-size: 20px;
+        }
+
+        .feature-text {
+            font-weight: 500;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .url-analysis-preview {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 16px;
+            text-align: center;
+        }
+
+        .url-preview-icon {
+            color: var(--primary-color);
+            opacity: 0.8;
+            margin-bottom: 12px;
+        }
+
+        .url-preview-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 0 0 8px 0;
+        }
+
+        .url-preview-description {
+            font-size: 13px;
+            color: var(--light-text);
+            margin: 0 0 16px 0;
+            line-height: 1.5;
+        }
+
+        .url-preview-input {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .url-preview-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--light-text);
+            background: var(--light-background);
+            cursor: not-allowed;
+        }
+
+        .url-preview-button {
+            background: var(--light-background);
+            color: var(--light-text);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: not-allowed;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .mock-input-container {
+            position: relative;
+            flex: 1;
+        }
+
+        .mock-input-container input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--light-text);
+            background: var(--light-background);
+            cursor: not-allowed;
+            padding-right: 100px; /* Make room for the badge */
+        }
+
+        .coming-soon-badge {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            opacity: 0.9;
+            animation: pulse 2s infinite;
+        }
+
+        .url-preview-input {
+            display: flex;
+            margin-top: 12px;
+        }
+
+        /* Remove the old button styles since we're not using them anymore */
+        .url-preview-button {
+            display: none;
+        }
+
+        .mock-url-input {
+            background: var(--light-background);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .mock-placeholder {
+            color: var(--light-text);
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        .coming-soon-pill {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            flex-shrink: 0;
+            animation: pulse 2s infinite;
+        }
+
+        .url-preview-input {
+            margin-top: 12px;
+        }
+
+        /* Remove the old styles */
+        .mock-input-container,
+        .url-preview-button {
+            display: none;
+        }
     </style>
 </head>
 
@@ -892,27 +1105,53 @@
 
         <div class="tab-content" id="templates-tab">
             <select id="template-select"></select>
+            <div class="mapping-nodes" id="mapping-nodes" role="list" aria-label="Text replacements"></div>
+            <button class="add-mapping" id="add-mapping">+ Add New Mapping</button>
+            <button id="toggle" aria-label="Toggle replacements"></button>
         </div>
 
         <div class="tab-content hidden" id="analyze-tab">
-            <div class="analysis-form">
-                <h3>AI Analysis</h3>
-                <p class="form-description">Get suggestions for text replacements.</p>
-                <div id="selected-text-container" class="hidden">
-                    <div class="selected-text-header">Selected Text:</div>
-                    <div id="selected-text" class="selected-text-display"></div>
-                    <button id="add-to-mappings" class="primary-button">
-                        Add to Mappings
-                    </button>
+            <div class="coming-soon-container">
+                <div class="coming-soon-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
                 </div>
-                <div id="analysis-results"></div>
+                <h3 class="coming-soon-title">AI Analysis Coming Soon</h3>
+                <p class="coming-soon-description">We're working on bringing powerful AI capabilities to Opptics.</p>
+                <div class="feature-preview">
+                    <div class="feature-item">
+                        <span class="feature-icon">🎯</span>
+                        <span class="feature-text">Smart Suggestions</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🔄</span>
+                        <span class="feature-text">Pattern Recognition</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        <span class="feature-text">Usage Analytics</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="url-analysis-preview">
+                <div class="url-preview-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M13.5 10.5L21 3M21 3H15M21 3V9M10.5 13.5L3 21M3 21H9M3 21V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="url-preview-title">Website Analysis</h3>
+                <p class="url-preview-description">Soon you'll be able to paste your prospect's website URL and let our AI generate smart replacements based on their content.</p>
+                <div class="url-preview-input">
+                    <div class="mock-url-input">
+                        <span class="mock-placeholder">https://prospect-website.com</span>
+                        <span class="coming-soon-pill">Coming Soon</span>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="container">
-        <div class="mapping-nodes" id="mapping-nodes" role="list" aria-label="Text replacements"></div>
-        <button class="add-mapping" id="add-mapping">+ Add New Mapping</button>
-        <button id="toggle" aria-label="Toggle replacements"></button>
     </div>
     <script src="popup.js"></script>
     <script src="config.js"></script>
