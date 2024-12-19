@@ -1,0 +1,162 @@
+.site-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.priority-section {
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.priority-section.high {
+    background: #fee2e2;
+    border: 1px solid #ef4444;
+}
+
+.priority-section.medium {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+}
+
+.priority-section.low {
+    background: #ecfdf5;
+    border: 1px solid #10b981;
+}
+
+.mapping-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mapping-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    margin: 8px 0;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+}
+
+.empty-state span {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+.empty-state p {
+    font-size: 12px;
+    text-align: center;
+    margin: 0;
+    color: #94a3b8;
+}
+
+.empty-state-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.primary-button {
+    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.primary-button:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.new-mapping-node {
+    animation: fadeIn 0.2s ease;
+    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 8px;
+}
+
+.new-mapping-node .mapping-input {
+    background: #ffffff;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+} 
+
+.opptics-tooltip {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+} 
+
+.secondary-button {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--primary-color);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.secondary-button:hover {
+    background: var(--light-background);
+    border-color: var(--primary-color);
+}
+
+.secondary-button svg {
+    color: currentColor;
+    flex-shrink: 0;
+    margin-top: -1px;
+}

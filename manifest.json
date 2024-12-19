@@ -1,0 +1,47 @@
+{
+    "name": "Opptics",
+    "version": "1.1",
+    "manifest_version": 3,
+    "description": "Persist text replacements across page loads.",
+    "permissions": [
+        "storage",
+        "scripting",
+        "tabs",
+        "activeTab",
+        "contextMenus"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "config.js",
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "popup.html",
+                "config.js",
+                "popup.js",
+                "assets/logo.svg"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ]
+}

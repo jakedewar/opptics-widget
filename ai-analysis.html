@@ -1,0 +1,90 @@
+<script src="config.js"></script>
+<script src="ai-analysis.js"></script>
+<style>
+    .error-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #dc2626;
+        background: #fee2e2;
+        padding: 12px;
+        border-radius: 6px;
+        margin-top: 12px;
+        font-size: 14px;
+    }
+
+    .progress-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        background: #f3f4f6;
+        color: #6b7280;
+        font-size: 14px;
+        opacity: 0.7;
+    }
+
+    .step.active {
+        background: #dbeafe;
+        color: #2563eb;
+        opacity: 1;
+    }
+
+    .step.completed {
+        background: #dcfce7;
+        color: #16a34a;
+        opacity: 1;
+    }
+
+    .retry-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        padding: 8px 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        background: white;
+        color: #374151;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    .retry-button:hover {
+        background: #f9fafb;
+    }
+
+    .url-input.error {
+        border-color: #dc2626;
+    }
+
+    .loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #f3f4f6;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+<button id="analyze-site" class="analyze-button">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+    </svg>
+    Analyze Website
+</button>
