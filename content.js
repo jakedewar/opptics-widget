@@ -1,16 +1,29 @@
-// Initialize connection status
+// Initialize connection status and check Chrome API availability
 let isConnected = false;
+let chromeAPIAvailable = typeof chrome !== 'undefined' && chrome.runtime && chrome.storage;
 
-// Set up connection when content script loads
-chrome.runtime.onConnect.addListener(port => {
-    isConnected = true;
-    port.onDisconnect.addListener(() => {
-        isConnected = false;
-    });
-});
+// Set up connection when content script loads - only if Chrome API is available
+if (chromeAPIAvailable) {
+    try {
+        chrome.runtime.onConnect.addListener(port => {
+            isConnected = true;
+            port.onDisconnect.addListener(() => {
+                isConnected = false;
+            });
+        });
+    } catch (error) {
+        console.log('Error setting up Chrome connection:', error);
+        chromeAPIAvailable = false;
+    }
+}
 
 // On page load, run if enabled
 (async function () {
+    if (!chromeAPIAvailable) {
+        console.log('Chrome API not available, skipping initialization');
+        return;
+    }
+
     try {
         const { mapping, enabled } = await chrome.storage.sync.get(['mapping', 'enabled']);
         if (enabled && mapping && Object.keys(mapping).length > 0) {
@@ -24,91 +37,99 @@ chrome.runtime.onConnect.addListener(port => {
         }
     } catch (error) {
         console.error('Error initializing content script:', error);
+        chromeAPIAvailable = false;
     }
 })();
 
-// Update message listener with error handling
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// Update message listener with error handling - only if Chrome API is available
+if (chromeAPIAvailable) {
     try {
-        if (request.action === 'replaceSelectedText') {
-            const selection = window.getSelection();
-            
-            // Function to safely escape text for regex
-            const escapeRegexStr = str => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                                         .replace(/\n/g, '\\n')
-                                         .replace(/\r/g, '\\r');
-            
-            // Function to replace text in a node
-            const replaceTextInNode = (node, range) => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    const nodeText = node.textContent;
-                    const originalText = request.original;
-                    
-                    // For exact matches within the selection range
-                    if (range && 
-                        node === range.startContainer && 
-                        node === range.endContainer) {
-                        const beforeText = nodeText.substring(0, range.startOffset);
-                        const afterText = nodeText.substring(range.endOffset);
-                        node.textContent = beforeText + request.replacement + afterText;
-                        return true;
-                    }
-                    
-                    // For partial matches or nodes fully within the selection
-                    if (nodeText.includes(originalText)) {
-                        node.textContent = nodeText.replace(originalText, request.replacement);
-                        return true;
-                    }
-                }
-                return false;
-            };
-
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             try {
-                const range = selection.getRangeAt(0);
-                const container = range.commonAncestorContainer;
-                let replaced = false;
+                if (request.action === 'replaceSelectedText') {
+                    const selection = window.getSelection();
+                    
+                    // Function to safely escape text for regex
+                    const escapeRegexStr = str => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                                                 .replace(/\n/g, '\\n')
+                                                 .replace(/\r/g, '\\r');
+                    
+                    // Function to replace text in a node
+                    const replaceTextInNode = (node, range) => {
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            const nodeText = node.textContent;
+                            const originalText = request.original;
+                            
+                            // For exact matches within the selection range
+                            if (range && 
+                                node === range.startContainer && 
+                                node === range.endContainer) {
+                                const beforeText = nodeText.substring(0, range.startOffset);
+                                const afterText = nodeText.substring(range.endOffset);
+                                node.textContent = beforeText + request.replacement + afterText;
+                                return true;
+                            }
+                            
+                            // For partial matches or nodes fully within the selection
+                            if (nodeText.includes(originalText)) {
+                                node.textContent = nodeText.replace(originalText, request.replacement);
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
 
-                // If selection is within a single text node
-                if (container.nodeType === Node.TEXT_NODE) {
-                    replaced = replaceTextInNode(container, range);
-                } else {
-                    // Extract the selected text and verify it matches
-                    const selectedText = range.toString();
-                    if (selectedText === request.original) {
-                        // Replace the entire range content
-                        range.deleteContents();
-                        const textNode = document.createTextNode(request.replacement);
-                        range.insertNode(textNode);
-                        replaced = true;
+                    try {
+                        const range = selection.getRangeAt(0);
+                        const container = range.commonAncestorContainer;
+                        let replaced = false;
+
+                        // If selection is within a single text node
+                        if (container.nodeType === Node.TEXT_NODE) {
+                            replaced = replaceTextInNode(container, range);
+                        } else {
+                            // Extract the selected text and verify it matches
+                            const selectedText = range.toString();
+                            if (selectedText === request.original) {
+                                // Replace the entire range content
+                                range.deleteContents();
+                                const textNode = document.createTextNode(request.replacement);
+                                range.insertNode(textNode);
+                                replaced = true;
+                            }
+                        }
+                        
+                        sendResponse({ success: replaced });
+                    } catch (error) {
+                        console.error('Error during replacement:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    
+                    return true; // Keep message channel open for async response
+                } else if (request.action === 'getSelectedText') {
+                    const selection = window.getSelection();
+                    const selectedText = selection.toString().trim();
+                    if (selectedText) {
+                        sendResponse({ 
+                            success: true, 
+                            text: selectedText,
+                            context: getSelectionContext(selection)
+                        });
+                    } else {
+                        sendResponse({ success: false });
                     }
                 }
-                
-                sendResponse({ success: replaced });
             } catch (error) {
-                console.error('Error during replacement:', error);
+                console.error('Error in message listener:', error);
                 sendResponse({ success: false, error: error.message });
             }
-            
-            return true; // Keep message channel open for async response
-        } else if (request.action === 'getSelectedText') {
-            const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
-            if (selectedText) {
-                sendResponse({ 
-                    success: true, 
-                    text: selectedText,
-                    context: getSelectionContext(selection)
-                });
-            } else {
-                sendResponse({ success: false });
-            }
-        }
+            return true;
+        });
     } catch (error) {
-        console.error('Error in message listener:', error);
-        sendResponse({ success: false, error: error.message });
+        console.log('Error setting up message listener:', error);
+        chromeAPIAvailable = false;
     }
-    return true;
-});
+}
 
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -247,29 +268,33 @@ document.addEventListener('mouseup', async () => {
     const selectedText = selection.toString().trim();
     
     if (selectedText) {
-        // Keep only the storage functionality
-        const range = selection.getRangeAt(0);
-        const selectionData = {
-            text: selectedText,
-            position: {
-                top: window.scrollY + range.getBoundingClientRect().top,
-                left: window.scrollX + range.getBoundingClientRect().left
-            },
-            timestamp: Date.now()
-        };
-        
-        // Store in session storage
-        sessionStorage.setItem('opptics_selection', JSON.stringify(selectionData));
-        
-        // Store in extension storage if available
-        if (chrome?.storage?.local) {
-            try {
-                await chrome.storage.local.set({
-                    lastSelection: selectionData
-                });
-            } catch (error) {
-                console.log('Extension storage unavailable, using session storage only');
+        try {
+            // Keep only the storage functionality
+            const range = selection.getRangeAt(0);
+            const selectionData = {
+                text: selectedText,
+                position: {
+                    top: window.scrollY + range.getBoundingClientRect().top,
+                    left: window.scrollX + range.getBoundingClientRect().left
+                },
+                timestamp: Date.now()
+            };
+            
+            // Store in session storage
+            sessionStorage.setItem('opptics_selection', JSON.stringify(selectionData));
+            
+            // Store in extension storage if available
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                try {
+                    await chrome.storage.local.set({
+                        lastSelection: selectionData
+                    });
+                } catch (error) {
+                    console.log('Error storing in extension storage:', error);
+                }
             }
+        } catch (error) {
+            console.error('Error handling selection:', error);
         }
     }
 });
@@ -280,20 +305,36 @@ document.addEventListener('contextmenu', async (e) => {
     const selectedText = selection.toString().trim();
     
     if (selectedText) {
-        // Store the selection in local storage
-        await chrome.storage.local.set({
-            pendingSelection: {
-                text: selectedText,
-                context: getSelectionContext(selection),
-                timestamp: Date.now()
-            }
-        });
+        try {
+            // Check if chrome.storage API is available
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                // Store the selection in local storage
+                await chrome.storage.local.set({
+                    pendingSelection: {
+                        text: selectedText,
+                        context: getSelectionContext(selection),
+                        timestamp: Date.now()
+                    }
+                });
 
-        // Send message to open extension popup to AI Analysis tab
-        chrome.runtime.sendMessage({
-            action: 'openExtension',
-            tab: 'analyze'
-        });
+                // Send message to open extension popup to AI Analysis tab
+                chrome.runtime.sendMessage({
+                    action: 'openExtension',
+                    tab: 'analyze'
+                });
+            } else {
+                console.log('Chrome storage API not available');
+                // Fallback to session storage if needed
+                const selectionData = {
+                    text: selectedText,
+                    context: getSelectionContext(selection),
+                    timestamp: Date.now()
+                };
+                sessionStorage.setItem('opptics_pending_selection', JSON.stringify(selectionData));
+            }
+        } catch (error) {
+            console.error('Error handling context menu selection:', error);
+        }
     }
 });
 
