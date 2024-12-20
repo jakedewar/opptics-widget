@@ -73,33 +73,94 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
 });
 
-// Add persistent connection handling
-let connections = new Map();
+// Track active connections
+const connections = new Map();
 
-chrome.runtime.onConnect.addListener(port => {
+// Add the missing handlePortMessage function
+function handlePortMessage(message, port, tabId) {
+    switch (message.type) {
+        case 'contentScriptReady':
+            // Handle content script initialization
+            chrome.storage.sync.get(['enabled', 'mapping'], (data) => {
+                port.postMessage({
+                    type: 'stateUpdate',
+                    enabled: data.enabled,
+                    mapping: data.mapping
+                });
+            });
+            break;
+
+        case 'updateState':
+            // Handle state updates from content script
+            chrome.storage.sync.set({
+                enabled: message.enabled,
+                mapping: message.mapping
+            });
+            break;
+
+        case 'openPopup':
+            // Handle popup open requests
+            chrome.action.openPopup().catch(error => {
+                console.log('Could not open popup:', error);
+            });
+            break;
+
+        default:
+            console.log('Unknown message type:', message.type);
+    }
+}
+
+chrome.runtime.onConnect.addListener((port) => {
     const tabId = port.sender?.tab?.id;
-    if (tabId) {
-        connections.set(tabId, port);
-        
-        port.onDisconnect.addListener(() => {
-            connections.delete(tabId);
-        });
-        
-        port.onMessage.addListener(async (msg) => {
-            if (msg.type === 'ready') {
-                const { pendingSelection } = await chrome.storage.local.get('pendingSelection');
-                if (pendingSelection && Date.now() - pendingSelection.timestamp < 5000) {
-                    port.postMessage({ 
-                        type: 'restoreSelection',
-                        selection: pendingSelection
+    if (!tabId) return;
+
+    // Store the connection
+    connections.set(tabId, port);
+
+    port.onDisconnect.addListener(() => {
+        connections.delete(tabId);
+    });
+
+    port.onMessage.addListener((message, port) => {
+        try {
+            handlePortMessage(message, port, tabId);
+        } catch (error) {
+            console.error('Error handling port message:', error);
+        }
+    });
+});
+
+// Handle tab updates
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete') {
+        const port = connections.get(tabId);
+        if (port) {
+            try {
+                // Resend any necessary state
+                chrome.storage.sync.get(['enabled', 'mapping'], (data) => {
+                    port.postMessage({
+                        type: 'stateUpdate',
+                        enabled: data.enabled,
+                        mapping: data.mapping
                     });
-                }
+                });
+            } catch (error) {
+                console.error('Error sending state update:', error);
+                connections.delete(tabId);
             }
-        });
+        }
     }
 });
 
-// Add tab removal cleanup
+// Clean up connections when tabs are closed
 chrome.tabs.onRemoved.addListener((tabId) => {
-    connections.delete(tabId);
+    const port = connections.get(tabId);
+    if (port) {
+        try {
+            port.disconnect();
+        } catch (error) {
+            console.error('Error disconnecting port:', error);
+        }
+        connections.delete(tabId);
+    }
 }); 

@@ -4,6 +4,7 @@ let chromeAPIAvailable = typeof chrome !== 'undefined' && chrome.runtime && chro
 
 // Initialize connection status and port
 let port = null;
+let reconnectTimeout = null;
 
 // Set up connection when content script loads - only if Chrome API is available
 if (chromeAPIAvailable) {
@@ -563,36 +564,117 @@ function getSelectionContext(selection) {
 
 // Set up connection when content script loads
 function setupConnection() {
-    try {
-        port = chrome.runtime.connect();
-        isConnected = true;
+    // Clear any existing reconnect timeout
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
 
+    // Don't try to connect if we're already connected
+    if (isConnected && port) {
+        return;
+    }
+
+    try {
+        // Check if extension is valid before attempting connection
+        if (!isExtensionValid()) {
+            console.log('Extension context invalid, will retry connection...');
+            reconnectTimeout = setTimeout(setupConnection, 1000);
+            return;
+        }
+
+        port = chrome.runtime.connect({ name: 'opptics-content' });
+        
         port.onDisconnect.addListener(() => {
+            const error = chrome.runtime.lastError;
             isConnected = false;
             port = null;
-            // Try to reconnect after a short delay
-            setTimeout(setupConnection, 1000);
-        });
 
-        // Notify background script that we're ready
-        port.postMessage({ type: 'ready' });
+            if (error) {
+                console.log('Port disconnected due to error:', error.message);
+            }
 
-        // Listen for messages from the background script
-        port.onMessage.addListener((msg) => {
-            if (msg.action === 'storeSelection') {
-                handleStoreSelection(msg.data);
-            } else if (msg.action === 'openPopup') {
-                handleOpenPopup();
+            // Only attempt reconnection if the page is visible and extension is valid
+            if (document.visibilityState === 'visible' && isExtensionValid()) {
+                reconnectTimeout = setTimeout(setupConnection, 1000);
             }
         });
+
+        // Set up message handling
+        port.onMessage.addListener((message) => {
+            try {
+                handlePortMessage(message);
+            } catch (error) {
+                console.error('Error handling port message:', error);
+            }
+        });
+
+        isConnected = true;
+        
+        // Notify that we're connected
+        port.postMessage({ type: 'contentScriptReady' });
+
     } catch (error) {
-        console.log('Error setting up connection:', error);
+        console.error('Error setting up connection:', error);
         isConnected = false;
         port = null;
-        // Try to reconnect after a short delay
-        setTimeout(setupConnection, 1000);
+
+        // Attempt reconnection if extension is still valid
+        if (isExtensionValid()) {
+            reconnectTimeout = setTimeout(setupConnection, 1000);
+        }
     }
 }
+
+// Add visibility change handler
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        // Page is visible again, attempt to reconnect if needed
+        if (!isConnected || !port) {
+            setupConnection();
+        }
+    } else {
+        // Page is hidden, clean up connection
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+        }
+        if (port) {
+            port.disconnect();
+            port = null;
+        }
+        isConnected = false;
+    }
+});
+
+// Handle page unload
+window.addEventListener('unload', () => {
+    if (port) {
+        port.disconnect();
+        port = null;
+    }
+    isConnected = false;
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
+});
+
+// Separate message handling logic
+function handlePortMessage(message) {
+    switch (message.type) {
+        case 'updateWidgetVisibility':
+            updateWidgetVisibility(message.visible);
+            break;
+        case 'applyReplacements':
+            applyReplacements(message.mapping);
+            break;
+        // Add other message handlers as needed
+    }
+}
+
+// Initialize connection when script loads
+setupConnection();
 
 // Add this near the top with other constants
 const DEFAULT_TEMPLATES = {
@@ -644,6 +726,7 @@ function createWidget() {
     
     widget.innerHTML = `
         <div class="opptics-widget-button">
+            <div class="widget-status-indicator"></div>
             <img src="${chrome.runtime.getURL('assets/icon48.png')}" alt="Opptics Widget" width="32" height="32">
         </div>
         <div class="opptics-widget-bar hidden">
@@ -1163,6 +1246,24 @@ function createWidget() {
         .mapping-list::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+
+        .widget-status-indicator {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid white;
+            background: #4f46e5;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .widget-status-indicator.active {
+            opacity: 1;
+            box-shadow: 0 0 8px 2px rgba(79, 70, 229, 0.25);
+        }
     `;
     document.head.appendChild(styles);
 
@@ -1223,6 +1324,24 @@ function createWidget() {
             console.error('Error in toggle button handler:', error);
             // Revert UI if there was an error
             updateToggleButton(toggleBtn, !newState);
+        }
+    });
+
+    // Update the status indicator based on current state
+    chrome.storage.sync.get(['enabled'], ({ enabled }) => {
+        const indicator = widget.querySelector('.widget-status-indicator');
+        if (indicator) {
+            indicator.classList.toggle('active', enabled);
+        }
+    });
+
+    // Listen for enabled state changes
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace === 'sync' && changes.enabled) {
+            const indicator = widget.querySelector('.widget-status-indicator');
+            if (indicator) {
+                indicator.classList.toggle('active', changes.enabled.newValue);
+            }
         }
     });
 
