@@ -1,0 +1,8 @@
+/* Extract common styles from popup.css */
+:root {
+    --primary-color: #4f46e5;
+    --secondary-color: #3730a3;
+    /* ... other variables ... */
+}
+
+/* Add shared component styles */ 

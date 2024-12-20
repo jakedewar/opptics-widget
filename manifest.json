@@ -1,5 +1,5 @@
 {
-    "name": "Opptics",
+    "name": "Opptics Widget",
     "version": "1.1",
     "manifest_version": 3,
     "description": "Persist text replacements across page loads.",
@@ -11,7 +11,19 @@
         "contextMenus"
     ],
     "action": {
-        "default_popup": "popup.html"
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "assets/icon16.png",
+            "32": "assets/icon32.png",
+            "48": "assets/icon48.png",
+            "128": "assets/icon128.png"
+        }
+    },
+    "icons": {
+        "16": "assets/icon16.png",
+        "32": "assets/icon32.png",
+        "48": "assets/icon48.png",
+        "128": "assets/icon128.png"
     },
     "background": {
         "service_worker": "background.js"
@@ -32,7 +44,7 @@
             "resources": [
                 "popup.html",
                 "popup.js",
-                "assets/logo.svg"
+                "assets/*"
             ],
             "matches": [
                 "<all_urls>"
@@ -41,5 +53,8 @@
     ],
     "host_permissions": [
         "<all_urls>"
-    ]
+    ],
+    "author": "Jake Dewar",
+    "homepage_url": "https://opptics.io",
+    "short_name": "Opptics Widget"
 }

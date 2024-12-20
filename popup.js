@@ -311,6 +311,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add quick replacement functionality
     initializeQuickReplace();
+
+    // Initialize settings tab
+    initializeSettingsTab();
 });
 
 function updateUI() {
@@ -403,6 +406,32 @@ async function loadMappings(mappings) {
         return;
     }
 
+    // Add clear all button if more than 2 mappings
+    if (Object.keys(mappings).length > 2) {
+        const clearAllButton = document.createElement('button');
+        clearAllButton.className = 'clear-all-button';
+        clearAllButton.setAttribute('type', 'button');
+        clearAllButton.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Clear all mappings
+        `;
+        clearAllButton.style.cssText = `
+            border: 1px solid #ef4444;
+            background: transparent;
+            color: #ef4444;
+        `;
+        clearAllButton.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to clear all mappings?')) {
+                await chrome.storage.sync.set({ mapping: {} });
+                loadMappings({});
+                updateMappingState();
+            }
+        });
+        container.appendChild(clearAllButton);
+    }
+
     // Add mapping nodes for each mapping
     Object.entries(mappings).forEach(([original, replacement]) => {
         const node = createMappingNode(original, replacement);
@@ -443,30 +472,21 @@ function initializeTabs() {
 
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            const tabId = tab.getAttribute('data-tab');
+            const tabId = tab.dataset.tab;
             switchToTab(tabId);
         });
     });
 }
 
 function switchToTab(tabId) {
-    const tabs = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabs.forEach(tab => {
-        if (tab.getAttribute('data-tab') === tabId) {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
-        }
+    // Update tab buttons
+    document.querySelectorAll('.tab-button').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabId);
     });
 
-    tabContents.forEach(content => {
-        if (content.id === `${tabId}-tab`) {
-            content.classList.remove('hidden');
-        } else {
-            content.classList.add('hidden');
-        }
+    // Update tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('hidden', content.id !== `${tabId}-tab`);
     });
 }
 
@@ -583,6 +603,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function handleSelectedTextAnalysis(selectedText, context) {
     // Switch to analyze tab to show coming soon message
     switchToTab('analyze');
+}
+
+function initializeSettingsTab() {
+    const settingsTab = document.getElementById('settings-tab');
+    if (!settingsTab) return;
+
+    settingsTab.innerHTML = `
+        <div class="settings-section">
+            <div class="setting-item">
+                <div class="setting-header">
+                    <h3 class="setting-title">Widget Visibility</h3>
+                    <p class="setting-description">Control whether the Opptics widget appears on web pages</p>
+                </div>
+                <label class="setting-label">
+                    <span>Show Widget</span>
+                    <input type="checkbox" id="widget-visibility-toggle" class="toggle-input">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-header">
+                    <h3 class="setting-title">About Opptics</h3>
+                    <p class="setting-description">Version 1.1</p>
+                </div>
+                <div class="about-links">
+                    <a href="https://opptics.io" target="_blank" class="link-button">
+                        Website
+                    </a>
+                    <a href="https://opptics.io/privacy" target="_blank" class="link-button">
+                        Privacy Policy
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Initialize widget visibility toggle
+    const visibilityToggle = document.getElementById('widget-visibility-toggle');
+    if (visibilityToggle) {
+        // Load current setting
+        chrome.storage.sync.get('widgetVisible', ({ widgetVisible = true }) => {
+            visibilityToggle.checked = widgetVisible;
+        });
+
+        // Handle toggle changes
+        visibilityToggle.addEventListener('change', async (e) => {
+            const visible = e.target.checked;
+            await chrome.storage.sync.set({ widgetVisible: visible });
+            
+            // Update widget visibility in all tabs
+            const tabs = await chrome.tabs.query({});
+            tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, {
+                    action: 'updateWidgetVisibility',
+                    visible
+                }).catch(() => {
+                    // Ignore errors for tabs where content script isn't loaded
+                });
+            });
+        });
+    }
 }
 
 
